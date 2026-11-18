@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  workspace:
+    name: Workspace checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build workspaces
+        run: npm run build
+
+  docker:
+    name: Docker build (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: frontend
+            directory: frontend
+          - component: user-team-service
+            directory: services/user-team-service
+          - component: task-service
+            directory: services/task-service
+          - component: notification-service
+            directory: services/notification-service
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Check for Docker build inputs changed by the PR
+        id: changes
+        env:
+          COMPONENT_DIR: ${{ matrix.directory }}
+        run: |
+          # A pull_request checkout is the test merge; its first parent is the base.
+          changed_paths=$(git diff --name-only HEAD^1 HEAD -- \
+            "$COMPONENT_DIR/" package.json package-lock.json .nvmrc \
+            .dockerignore contracts/ .github/workflows/ci.yml)
+          if [[ -n "$changed_paths" ]]; then
+            printf 'build=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'build=false\n' >> "$GITHUB_OUTPUT"
+            printf 'No Docker build inputs changed for %s.\n' "$COMPONENT_DIR"
+          fi
+      - name: Build image
+        if: steps.changes.outputs.build == 'true'
+        env:
+          COMPONENT: ${{ matrix.component }}
+          COMPONENT_DIR: ${{ matrix.directory }}
+        run: docker build --file "$COMPONENT_DIR/Dockerfile" --tag "teamisty/$COMPONENT:ci" .
