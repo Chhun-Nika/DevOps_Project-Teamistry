@@ -1,0 +1,8 @@
+import 'dotenv/config';
+import { app } from './app';
+
+const port = Number(process.env.PORT ?? 3002);
+
+app.listen(port, () => {
+  console.log(JSON.stringify({ level: 'info', service: 'task-service', message: `Listening on port ${port}` }));
+});

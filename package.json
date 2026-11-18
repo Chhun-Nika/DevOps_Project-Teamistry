@@ -1,0 +1,22 @@
+{
+  "name": "teamisty",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "frontend",
+    "services/*"
+  ],
+  "engines": {
+    "node": ">=26 <27",
+    "npm": ">=11"
+  },
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=@teamisty/frontend",
+    "dev:user-team": "npm run dev --workspace=@teamisty/user-team-service",
+    "dev:task": "npm run dev --workspace=@teamisty/task-service",
+    "dev:notification": "npm run dev --workspace=@teamisty/notification-service",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}
