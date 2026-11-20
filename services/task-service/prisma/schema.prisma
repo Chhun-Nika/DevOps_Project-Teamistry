@@ -1,8 +1,98 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+enum OutboxDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+enum TaskEventType {
+  TASK_ASSIGNED
+  TASK_REASSIGNED
+  TASK_STATUS_UPDATED
+  TASK_UPDATED
+  TASK_DELETED
+  TEAM_BOARD_READY
+}
+
+model BoardStatus {
+  id        String   @id @default(uuid()) @db.Uuid
+  teamId    String
+  name      String   @db.VarChar(50)
+  position  Int
+  isDone    Boolean  @default(false)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
+
+  @@unique([teamId, name])
+  @@unique([teamId, position])
+  @@index([teamId, deletedAt, position])
+}
+
+model Task {
+  id          String   @id @default(uuid()) @db.Uuid
+  teamId      String
+  creatorId   String
+  assigneeId  String
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  dueDate     DateTime?
+  completedAt DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  statusId String      @db.Uuid
+  status   BoardStatus @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  comments Comment[]
+  outbox   TaskOutboxEvent[]
+
+  @@index([teamId, deletedAt])
+  @@index([statusId, deletedAt])
+  @@index([assigneeId, deletedAt])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  authorId  String
+  content   String   @db.Text
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  @@index([taskId, deletedAt, createdAt])
+}
+
+model TaskOutboxEvent {
+  id             String               @id @default(uuid()) @db.Uuid
+  eventType      TaskEventType
+  teamId         String
+  taskId         String?              @db.Uuid
+  recipientId    String?
+  payload        Json
+  deliveryStatus OutboxDeliveryStatus @default(PENDING)
+  attemptCount   Int                  @default(0)
+  availableAt    DateTime             @default(now())
+  deliveredAt    DateTime?
+  lastError      String?              @db.Text
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([deliveryStatus, availableAt])
+  @@index([teamId, createdAt])
 }
