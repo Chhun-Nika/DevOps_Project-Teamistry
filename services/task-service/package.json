@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "npm run prisma:generate && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test": "jest --runInBand",
-    "lint": "tsc --noEmit",
+    "lint": "npm run prisma:generate && tsc --noEmit",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts"
