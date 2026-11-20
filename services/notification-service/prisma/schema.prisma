@@ -1,8 +1,34 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+enum NotificationEventType {
+  TASK_ASSIGNED
+  TASK_REASSIGNED
+  TASK_STATUS_UPDATED
+  TASK_UPDATED
+  TASK_DELETED
+}
+
+model Notification {
+  id             String                 @id @default(uuid()) @db.Uuid
+  sourceEventId  String
+  recipientId    String
+  eventType      NotificationEventType
+  title          String                 @db.VarChar(200)
+  body           String                 @db.Text
+  payload        Json
+  linkedTaskId   String?
+  linkedTeamId   String?
+  readAt         DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([sourceEventId, recipientId])
+  @@index([recipientId, readAt, createdAt])
 }
