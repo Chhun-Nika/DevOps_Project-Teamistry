@@ -8,6 +8,7 @@
     "prebuild": "npm run prisma:generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
+    "pretest": "npm run prisma:generate",
     "test": "jest --runInBand",
     "prelint": "npm run prisma:generate",
     "lint": "tsc --noEmit",
@@ -17,16 +18,20 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "bcryptjs": "^3.0.3",
+    "cookie": "^1.1.1",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
     "helmet": "latest",
+    "jsonwebtoken": "^9.0.3",
     "zod": "latest"
   },
   "devDependencies": {
     "@types/cors": "latest",
     "@types/express": "latest",
     "@types/jest": "latest",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "latest",
     "@types/supertest": "latest",
     "jest": "latest",

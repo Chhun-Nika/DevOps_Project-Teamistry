@@ -1,0 +1,314 @@
+openapi: 3.0.4
+info:
+  title: Teamisty User & Team API
+  version: 0.1.0
+  description: Health, password authentication, profile lookup, and refresh-session management.
+servers:
+  - url: http://localhost:3001
+    description: Direct local User & Team Service
+tags:
+  - name: Health
+  - name: Authentication
+  - name: Users
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getUserTeamHealth
+      summary: Check HTTP service health
+      description: Reports that the HTTP service is running. PostgreSQL connectivity is checked separately.
+      security: []
+      responses:
+        '200':
+          description: The HTTP service is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  service:
+                    type: string
+                    enum: [user-team-service]
+  /auth/signup:
+    post:
+      tags: [Authentication]
+      operationId: signUp
+      summary: Create a password-based account
+      description: Returns the public profile. Use login to start a session.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupInput'
+      responses:
+        '201':
+          $ref: '#/components/responses/CreatedProfile'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '409':
+          description: The username or email is already registered (`ACCOUNT_CONFLICT`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: logInWithPassword
+      summary: Sign in with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          $ref: '#/components/responses/SessionIssued'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          description: The email or password is incorrect (`INVALID_CREDENTIALS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: refreshSession
+      summary: Rotate the refresh session
+      description: Revokes the current refresh session and starts a replacement seven-day session. The old cookie cannot be reused.
+      security:
+        - RefreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TrustedOrigin'
+      responses:
+        '200':
+          $ref: '#/components/responses/SessionIssued'
+        '401':
+          $ref: '#/components/responses/InvalidRefreshSession'
+        '403':
+          $ref: '#/components/responses/UntrustedOrigin'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logOut
+      summary: Revoke the current refresh session
+      description: Clears the refresh cookie. An already-issued access token remains usable until its expiry.
+      security:
+        - RefreshCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TrustedOrigin'
+      responses:
+        '204':
+          description: The refresh session was revoked. The response has no body.
+          headers:
+            Set-Cookie:
+              description: Expires the `refreshToken` cookie at the same configured path and SameSite setting.
+              schema:
+                type: string
+              example: 'refreshToken=; Path=/auth; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax'
+        '401':
+          $ref: '#/components/responses/InvalidRefreshSession'
+        '403':
+          $ref: '#/components/responses/UntrustedOrigin'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /users/me:
+    get:
+      tags: [Users]
+      operationId: getCurrentUser
+      summary: Get the signed-in user's public profile
+      security:
+        - AccessToken: []
+      responses:
+        '200':
+          description: The current user's public profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: A valid access token and an existing user are required (`UNAUTHENTICATED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+components:
+  securitySchemes:
+    AccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: The 15-minute access token returned by login or refresh.
+    RefreshCookie:
+      type: apiKey
+      in: cookie
+      name: refreshToken
+      description: Seven-day Secure, HttpOnly refresh cookie. Browser clients use credentialed requests.
+  parameters:
+    TrustedOrigin:
+      name: Origin
+      in: header
+      required: true
+      description: An exact origin in `AUTH_TRUSTED_ORIGINS`. Browsers supply this header.
+      schema:
+        type: string
+      example: http://localhost:5173
+  schemas:
+    SignupInput:
+      type: object
+      additionalProperties: false
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          description: Length is checked after trimming surrounding whitespace.
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          writeOnly: true
+          description: Also limited to 72 UTF-8 bytes for bcrypt.
+        displayName:
+          type: string
+          maxLength: 100
+          description: Length is checked after trimming surrounding whitespace.
+    LoginInput:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          $ref: '#/components/schemas/Email'
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 72
+          writeOnly: true
+          description: Also limited to 72 UTF-8 bytes for bcrypt.
+    Email:
+      type: string
+      format: email
+      maxLength: 254
+      description: Trimmed before validation and normalized to lowercase.
+    UserResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          type: object
+          required: [id, username, email, displayName]
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+            email:
+              type: string
+              format: email
+            displayName:
+              type: string
+              nullable: true
+    AccessTokenResponse:
+      type: object
+      required: [accessToken]
+      properties:
+        accessToken:
+          type: string
+          description: HS256 access JWT valid for 15 minutes.
+    Error:
+      type: object
+      required: [error, requestId]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+        requestId:
+          type: string
+          format: uuid
+  responses:
+    CreatedProfile:
+      description: Account created.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UserResponse'
+    SessionIssued:
+      description: Access token issued and refresh session set.
+      headers:
+        Set-Cookie:
+          description: Sets the Secure, HttpOnly `refreshToken` cookie for seven days. The default path is `/auth` and SameSite is `Lax`.
+          schema:
+            type: string
+          example: 'refreshToken=<refresh-jwt>; Max-Age=604800; Path=/auth; HttpOnly; Secure; SameSite=Lax'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AccessTokenResponse'
+    InvalidInput:
+      description: Invalid JSON or input validation failed (`INVALID_INPUT`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InvalidRefreshSession:
+      description: The refresh cookie is missing, invalid, expired, or revoked (`INVALID_REFRESH_SESSION`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UntrustedOrigin:
+      description: The Origin header is missing or is outside the allowlist (`UNTRUSTED_ORIGIN`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: The request could not be completed (`INTERNAL_ERROR`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    AuthUnavailable:
+      description: Required authentication configuration is unavailable or invalid (`AUTH_UNAVAILABLE`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

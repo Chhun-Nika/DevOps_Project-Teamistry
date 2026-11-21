@@ -51,6 +51,7 @@ Each service has its own `package.json`, Express application, Prisma schema and 
 
 ## 4. Testing expectations
 
+- Add or update the service's [OpenAPI contract](../contracts/openapi/README.md) in the same PR as any HTTP endpoint addition or behavior change. Verify its paths, inputs, responses, and authentication requirements against the implementation. Swagger UI is optional.
 - Unit tests cover validation, role rules, invitation transitions, status rules, and notification deduplication.
 - API integration tests cover authentication and all protected endpoints.
 - Cross-service tests cover membership validation, invalid-assignee handling, member removal with active tasks, and notification retry behaviour.

@@ -28,8 +28,11 @@ docker compose \
 | Task health | `http://localhost:3002/health` |
 | Notification health | `http://localhost:3003/health` |
 | RabbitMQ management | `http://localhost:15672` |
+| Swagger UI (optional) | `http://localhost:8081` |
 
 The gateway is intentionally not included until Caddy or Nginx is selected. Backend ports are temporarily exposed only for local development and health verification.
+
+Start the optional API reference separately with `docker compose -f infra/compose/compose.local.yaml --env-file infra/compose/.env up -d swagger-ui`. See the [OpenAPI README](../../contracts/openapi/README.md) for browser testing setup.
 
 ## Stop or reset
 
