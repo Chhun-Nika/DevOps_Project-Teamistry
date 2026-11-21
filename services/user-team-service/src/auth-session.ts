@@ -14,7 +14,7 @@ const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
 const REFRESH_COOKIE = 'refreshToken';
 const uuid = z.uuid();
 
-function getJwtSecret(): string {
+export function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.startsWith('replace-with-') || Buffer.byteLength(secret.trim()) < 32) {
     throw new AuthConfigurationError('JWT_SECRET is missing or too short');
@@ -98,6 +98,17 @@ async function revokeActiveSession(
     data: { revokedAt: now },
   });
   return count === 1;
+}
+
+export async function getActiveRefreshUserId(cookieHeader: string | undefined): Promise<string | undefined> {
+  const session = readRefreshSession(cookieHeader);
+  if (!session) return undefined;
+
+  const active = await getDatabase().refreshSession.findFirst({
+    where: { ...session, revokedAt: null, expiresAt: { gt: new Date() } },
+    select: { userId: true },
+  });
+  return active?.userId;
 }
 
 export async function rotateSession(cookieHeader: string | undefined, response: Response): Promise<string | undefined> {

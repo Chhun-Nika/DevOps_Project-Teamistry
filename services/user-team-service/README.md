@@ -24,6 +24,14 @@ Use `credentials: 'include'` for browser requests to login, refresh, and logout.
 
 The direct service uses `AUTH_REFRESH_COOKIE_PATH=/auth` and `AUTH_REFRESH_COOKIE_SAME_SITE=lax`. Set the path to `/api/auth` when the public gateway adds that prefix. For a cross-site frontend/API deployment, use HTTPS, set `AUTH_REFRESH_COOKIE_SAME_SITE=none`, and allow only the actual trusted frontend origins. Verify cookie behavior on the deployed origins because browser policies can restrict cross-site cookies.
 
+## Google sign-in
+
+Create a Google OAuth client for a web application and register the exact `GOOGLE_REDIRECT_URI`. For direct local testing that is `http://localhost:3001/auth/google/callback`. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, and `GOOGLE_SIGN_IN_SUCCESS_URL` in the ignored environment file for the way you are running the service. The success URL must use an origin in `AUTH_TRUSTED_ORIGINS`. When using a gateway, match the public callback path to `AUTH_REFRESH_COOKIE_PATH`.
+
+Start by navigating the browser to `GET /auth/google`. Google returns to the API callback, which sets the refresh cookie and redirects to the configured frontend callback without putting a Teamisty token in the URL. The frontend callback should send `POST /auth/refresh` with credentials to obtain its first access token. That frontend screen is part of the web app work.
+
+Accounts already linked to Google sign in by their verified Google subject. If the email matches an existing unlinked Teamisty account, first sign in to that account and then navigate to `GET /auth/google?link=1` to link it. The confirmed Google email must match the account and the Teamisty session must still be active at callback time.
+
 ## Apply the local database migrations
 
 From the monorepo root, with `infra/compose/.env` already configured:

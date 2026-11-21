@@ -9,6 +9,7 @@ import { AuthConfigurationError, isTrustedAuthOrigin } from './auth-browser';
 import { issueSession, logoutSession, readAccessSubject, rotateSession } from './auth-session';
 import { getDatabase } from './database';
 import { Prisma } from './generated/prisma/client';
+import { finishGoogleSignIn, GoogleSignInError, startGoogleSignIn } from './google-auth';
 
 const HASH_COST = 12;
 // Keep password verification work comparable when an account has no password.
@@ -87,6 +88,16 @@ authRoutes.post('/auth/login', async (request, response) => {
   response.set('Cache-Control', 'no-store').json({ accessToken });
 });
 
+authRoutes.get('/auth/google', async (request, response) => {
+  response.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  await startGoogleSignIn(request, response);
+});
+
+authRoutes.get('/auth/google/callback', async (request, response) => {
+  response.set({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  await finishGoogleSignIn(request, response);
+});
+
 authRoutes.post('/auth/refresh', requireTrustedOrigin, async (request, response) => {
   const accessToken = await rotateSession(request.get('cookie'), response);
   if (!accessToken) {
@@ -124,6 +135,8 @@ export const authErrorHandler: ErrorRequestHandler = (error, _request, response,
     next(error);
   } else if (error instanceof AuthConfigurationError) {
     sendError(response, 503, 'AUTH_UNAVAILABLE', 'Authentication is temporarily unavailable.');
+  } else if (error instanceof GoogleSignInError) {
+    sendError(response, 401, error.code, error.message);
   } else if (error instanceof SyntaxError && 'status' in error && error.status === 400) {
     sendError(response, 400, 'INVALID_INPUT', 'Request body is not valid JSON.');
   } else {

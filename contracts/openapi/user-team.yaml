@@ -2,7 +2,7 @@ openapi: 3.0.4
 info:
   title: Teamisty User & Team API
   version: 0.1.0
-  description: Health, password authentication, profile lookup, and refresh-session management.
+  description: Health, password and Google authentication, profile lookup, and refresh-session management.
 servers:
   - url: http://localhost:3001
     description: Direct local User & Team Service
@@ -82,6 +82,81 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /auth/google:
+    get:
+      tags: [Authentication]
+      operationId: startGoogleSignIn
+      summary: Start Google sign-in
+      description: Open as a browser navigation. The response sets a short-lived Secure, HttpOnly OAuth state cookie scoped to the callback.
+      security: []
+      parameters:
+        - name: link
+          in: query
+          description: Pass `1` to link Google to the currently signed-in Teamisty account. This requires an active refresh cookie.
+          schema:
+            type: string
+            enum: ['1']
+      responses:
+        '302':
+          description: Redirect to Google with state, nonce, and the PKCE challenge.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/GoogleSignInFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /auth/google/callback:
+    get:
+      tags: [Authentication]
+      operationId: finishGoogleSignIn
+      summary: Complete Google sign-in
+      description: Google redirects the browser here. A valid OAuth state cookie and matching state are required. This endpoint redirects to the configured frontend callback after creating the session.
+      security:
+        - GoogleFlowCookie: []
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          description: Google authorization code, required when access was granted.
+          schema:
+            type: string
+        - name: error
+          in: query
+          description: Google may return an error instead of a code.
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Refresh session established. The OAuth state cookie is cleared, a refresh cookie is set, and the browser is redirected without app tokens in the URL.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              description: Sent as separate headers to clear the OAuth state and set the refresh session.
+              schema:
+                type: array
+                items:
+                  type: string
+        '401':
+          $ref: '#/components/responses/GoogleSignInFailed'
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
@@ -170,6 +245,11 @@ components:
       in: cookie
       name: refreshToken
       description: Seven-day Secure, HttpOnly refresh cookie. Browser clients use credentialed requests.
+    GoogleFlowCookie:
+      type: apiKey
+      in: cookie
+      name: googleOAuth
+      description: Short-lived OAuth state cookie issued by the Google sign-in start endpoint.
   parameters:
     TrustedOrigin:
       name: Origin
@@ -302,6 +382,12 @@ components:
             $ref: '#/components/schemas/Error'
     InternalError:
       description: The request could not be completed (`INTERNAL_ERROR`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    GoogleSignInFailed:
+      description: Google could not authenticate the user or linking requires a signed-in Teamisty account (`GOOGLE_SIGN_IN_FAILED` or `GOOGLE_LINK_REQUIRED`).
       content:
         application/json:
           schema:

@@ -23,6 +23,7 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "google-auth-library": "^11.3.4",
     "helmet": "latest",
     "jsonwebtoken": "^9.0.3",
     "zod": "latest"

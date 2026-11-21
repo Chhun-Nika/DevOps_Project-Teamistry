@@ -4,7 +4,7 @@ An OpenAPI specification is a machine-readable YAML or JSON file that describes 
 
 Each service owner maintains one spec in this directory. Add or update the contract in the same PR as the endpoint change.
 
-- [User & Team](user-team.yaml) covers health, signup, password login, profile, refresh, and logout.
+- [User & Team](user-team.yaml) covers health, signup, password login, Google sign-in, profile, refresh, and logout.
 - Task will use `task.yaml` for boards, statuses, tasks, and comments.
 - Notification will use `notification.yaml` for the inbox and read state.
 
