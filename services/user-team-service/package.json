@@ -3,14 +3,19 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "tsx watch src/server.ts",
+    "prebuild": "npm run prisma:generate",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test": "jest --runInBand",
+    "prelint": "npm run prisma:generate",
     "lint": "tsc --noEmit",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "cors": "latest",
     "dotenv": "latest",

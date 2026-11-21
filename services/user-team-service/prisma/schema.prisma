@@ -1,8 +1,141 @@
 generator client {
-  provider = "prisma-client-js"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+enum BoardProvisioningStatus {
+  PENDING
+  READY
+}
+
+enum MembershipRole {
+  OWNER
+  LEADER
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
+enum OutboxEventType {
+  TEAM_CREATED
+  INVITATION_CREATED
+}
+
+enum OutboxStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  username      String   @unique @db.VarChar(30)
+  email         String   @unique @db.VarChar(254)
+  passwordHash  String?
+  displayName   String?  @db.VarChar(100)
+  googleSubject String?  @unique
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  refreshSessions     RefreshSession[]
+  createdTeams        Team[]
+  memberships         Membership[]
+  sentInvitations     Invitation[]     @relation("InvitationInviter")
+  receivedInvitations Invitation[]     @relation("InvitationInvitee")
+}
+
+model RefreshSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+  updatedAt DateTime  @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+}
+
+model Team {
+  id                      String                  @id @default(uuid()) @db.Uuid
+  name                    String                  @db.VarChar(100)
+  creatorId               String                  @db.Uuid
+  boardProvisioningStatus BoardProvisioningStatus @default(PENDING)
+  deletedAt               DateTime?               @db.Timestamptz
+  createdAt               DateTime                @default(now()) @db.Timestamptz
+  updatedAt               DateTime                @updatedAt @db.Timestamptz
+
+  creator      User          @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  memberships  Membership[]
+  invitations  Invitation[]
+  outboxEvents OutboxEvent[]
+
+  @@index([creatorId])
+}
+
+model Membership {
+  id        String         @id @default(uuid()) @db.Uuid
+  teamId    String         @db.Uuid
+  userId    String         @db.Uuid
+  role      MembershipRole @default(MEMBER)
+  removedAt DateTime?      @db.Timestamptz
+  createdAt DateTime       @default(now()) @db.Timestamptz
+  updatedAt DateTime       @updatedAt @db.Timestamptz
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([teamId])
+  @@index([userId])
+}
+
+model Invitation {
+  id          String           @id @default(uuid()) @db.Uuid
+  teamId      String           @db.Uuid
+  inviterId   String           @db.Uuid
+  inviteeId   String           @db.Uuid
+  status      InvitationStatus @default(PENDING)
+  respondedAt DateTime?        @db.Timestamptz
+  createdAt   DateTime         @default(now()) @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @db.Timestamptz
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  inviter User @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Restrict)
+  invitee User @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Restrict)
+
+  @@index([teamId])
+  @@index([inviterId])
+  @@index([inviteeId])
+}
+
+model OutboxEvent {
+  id            String          @id @default(uuid()) @db.Uuid
+  teamId        String          @db.Uuid
+  correlationId String          @db.Uuid
+  eventType     OutboxEventType
+  data          Json
+  status        OutboxStatus    @default(PENDING)
+  attemptCount  Int             @default(0)
+  nextAttemptAt DateTime        @default(now()) @db.Timestamptz
+  deliveredAt   DateTime?       @db.Timestamptz
+  createdAt     DateTime        @default(now()) @db.Timestamptz
+  updatedAt     DateTime        @updatedAt @db.Timestamptz
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Restrict)
+
+  @@index([teamId])
+  @@index([status, nextAttemptAt])
 }
