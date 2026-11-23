@@ -5,8 +5,8 @@ An OpenAPI specification is a machine-readable YAML or JSON file that describes 
 Each service owner maintains one spec in this directory. Add or update the contract in the same PR as the endpoint change.
 
 - [User & Team](user-team.yaml) covers health, signup, password login, Google sign-in, profile, refresh, and logout.
-- Task will use `task.yaml` for boards, statuses, tasks, and comments.
-- Notification will use `notification.yaml` for the inbox and read state.
+- [Task](task.yaml) covers boards, statuses, tasks, and comments.
+- [Notification](notification.yaml) covers the inbox and read state.
 
 Identify internal REST endpoints and their authentication requirements explicitly. A public-facing API reference should include only public operations. Record RabbitMQ message contracts under [events](../events/).
 
@@ -31,3 +31,10 @@ docker compose -f infra/compose/compose.local.yaml --env-file infra/compose/.env
 For authentication endpoints, the [User & Team database must be running and migrated](../../services/user-team-service/README.md#apply-the-local-database-migrations). Use the same `localhost` hostname for the viewer and API so the browser can send the refresh cookie. Use **Authorize** with an access token for `GET /users/me`. Refresh and logout use the browser cookie set by login.
 
 Validate the User & Team spec from the monorepo root with `npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/user-team.yaml`.
+
+Validate the Task and Notification specs with:
+
+```bash
+npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/task.yaml
+npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/notification.yaml
+```

@@ -7,13 +7,25 @@ services:
     ports:
       - "127.0.0.1:8081:8080"
     environment:
-      URLS: '[{"url":"/specs/user-team.yaml","name":"User & Team"}]'
+      URLS: '[{"url":"/specs/user-team.yaml","name":"User & Team"},{"url":"/specs/task.yaml","name":"Task"},{"url":"/specs/notification.yaml","name":"Notification"}]'
       VALIDATOR_URL: "none"
       WITH_CREDENTIALS: "true"
     volumes:
       - type: bind
         source: ../../contracts/openapi/user-team.yaml
         target: /usr/share/nginx/html/specs/user-team.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../../contracts/openapi/task.yaml
+        target: /usr/share/nginx/html/specs/task.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../../contracts/openapi/notification.yaml
+        target: /usr/share/nginx/html/specs/notification.yaml
         read_only: true
         bind:
           create_host_path: false

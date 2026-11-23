@@ -1,0 +1,152 @@
+openapi: 3.0.4
+info:
+  title: Teamisty Notification API
+  version: 0.1.0
+  description: Recipient-scoped in-app notification inbox and read state.
+servers:
+  - url: http://localhost:3003
+    description: Direct local Notification Service
+tags:
+  - name: Health
+  - name: Inbox
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getNotificationHealth
+      summary: Check Notification Service health
+      security: []
+      responses:
+        '200':
+          description: Service is running.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /notifications:
+    get:
+      tags: [Inbox]
+      operationId: listNotifications
+      summary: List the authenticated user’s notifications
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Notifications belonging only to the authenticated user.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Notification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /notifications/{notificationId}/read:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Inbox]
+      operationId: markNotificationRead
+      summary: Mark the authenticated user’s notification as read
+      responses:
+        '200':
+          description: Updated notification.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /internal/notifications/events:
+    post:
+      tags: [Inbox]
+      operationId: ingestNotificationEvent
+      summary: Persist an internal task event for a recipient
+      description: Internal broker adapter boundary. This route must be private and service-authenticated in deployment.
+      security:
+        - ServiceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationEvent' }
+      responses:
+        '201':
+          description: Notification persisted or existing notification returned on replay.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notification' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+components:
+  securitySchemes:
+    ServiceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+  parameters:
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      description: Temporary local identity header; production uses bearer authentication.
+      schema: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid event payload.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Authentication or service authorization is missing.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Notification does not belong to the authenticated user.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Health:
+      type: object
+      required: [status, service]
+      properties:
+        status: { type: string, enum: [ok] }
+        service: { type: string, enum: [notification-service] }
+    Notification:
+      type: object
+      required: [id, sourceEventId, recipientId, eventType, title, body, payload, readAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        sourceEventId: { type: string }
+        recipientId: { type: string }
+        eventType:
+          type: string
+          enum: [TASK_ASSIGNED, TASK_REASSIGNED, TASK_STATUS_UPDATED, TASK_UPDATED, TASK_DELETED]
+        title: { type: string }
+        body: { type: string }
+        payload: { type: object, additionalProperties: true }
+        linkedTaskId: { type: string, nullable: true }
+        linkedTeamId: { type: string, nullable: true }
+        readAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    NotificationEvent:
+      type: object
+      required: [sourceEventId, recipientId, eventType, title, body]
+      properties:
+        sourceEventId: { type: string }
+        recipientId: { type: string }
+        eventType:
+          type: string
+          enum: [TASK_ASSIGNED, TASK_REASSIGNED, TASK_STATUS_UPDATED, TASK_UPDATED, TASK_DELETED]
+        title: { type: string }
+        body: { type: string }
+        payload: { type: object, additionalProperties: true, default: {} }
+        linkedTaskId: { type: string, nullable: true }
+        linkedTeamId: { type: string, nullable: true }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
