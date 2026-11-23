@@ -1,0 +1,315 @@
+openapi: 3.0.4
+info:
+  title: Teamisty Task API
+  version: 0.1.0
+  description: Boards, tasks, task comments, and task lifecycle operations.
+servers:
+  - url: http://localhost:3002
+    description: Direct local Task Service
+tags:
+  - name: Health
+  - name: Tasks
+  - name: Comments
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getTaskHealth
+      summary: Check Task Service health
+      security: []
+      responses:
+        '200':
+          description: Service is running.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /teams/{teamId}/tasks:
+    parameters:
+      - $ref: '#/components/parameters/TeamId'
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Tasks]
+      operationId: createTask
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    get:
+      tags: [Tasks]
+      operationId: listTasks
+      summary: List active tasks for a team
+      responses:
+        '200':
+          description: Active tasks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Task' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /tasks/{taskId}:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Tasks]
+      operationId: editTask
+      summary: Edit task details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditTaskRequest'
+      responses:
+        '200':
+          description: Updated task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Tasks]
+      operationId: deleteTask
+      summary: Soft-delete a task
+      responses:
+        '204': { description: Task deleted. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tasks/{taskId}/assignee:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Tasks]
+      operationId: assignTask
+      summary: Assign a task to an active team member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assigneeId]
+              properties:
+                assigneeId: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Updated task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tasks/{taskId}/status:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Tasks]
+      operationId: moveTask
+      summary: Move a task to another active status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statusId]
+              properties:
+                statusId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Updated task.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /tasks/{taskId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/TaskId'
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Comments]
+      operationId: listComments
+      summary: List task comments
+      responses:
+        '200':
+          description: Comments, including deleted-comment placeholders.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Comment' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Comments]
+      operationId: addComment
+      summary: Add a comment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        '201':
+          description: Comment created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /comments/{commentId}:
+    parameters:
+      - $ref: '#/components/parameters/CommentId'
+      - $ref: '#/components/parameters/UserId'
+    patch:
+      tags: [Comments]
+      operationId: editComment
+      summary: Edit a comment as its author
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 5000 }
+      responses:
+        '200':
+          description: Updated comment.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Comment' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Comments]
+      operationId: deleteComment
+      summary: Soft-delete a comment as its author
+      responses:
+        '204': { description: Comment deleted. }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  parameters:
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema: { type: string }
+    TaskId:
+      name: taskId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CommentId:
+      name: commentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    UserId:
+      name: x-user-id
+      in: header
+      required: true
+      description: Temporary local identity header; production uses bearer authentication.
+      schema: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid request.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: The user lacks active membership or permission.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: Board is not ready or status capacity was exceeded.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Health:
+      type: object
+      required: [status, service]
+      properties:
+        status: { type: string, enum: [ok] }
+        service: { type: string, enum: [task-service] }
+    Task:
+      type: object
+      required: [id, teamId, creatorId, assigneeId, title, statusId]
+      properties:
+        id: { type: string, format: uuid }
+        teamId: { type: string }
+        creatorId: { type: string }
+        assigneeId: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        dueDate: { type: string, format: date-time, nullable: true }
+        statusId: { type: string, format: uuid }
+        completedAt: { type: string, format: date-time, nullable: true }
+        deletedAt: { type: string, format: date-time, nullable: true }
+    Comment:
+      type: object
+      required: [id, taskId, authorId, content, placeholder]
+      properties:
+        id: { type: string, format: uuid }
+        taskId: { type: string, format: uuid }
+        authorId: { type: string }
+        content: { type: string }
+        placeholder: { type: boolean }
+        deletedAt: { type: string, format: date-time, nullable: true }
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        dueDate: { type: string, format: date-time }
+        assigneeId: { type: string }
+    EditTaskRequest:
+      type: object
+      minProperties: 1
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, nullable: true, maxLength: 5000 }
+        dueDate: { type: string, format: date-time, nullable: true }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
