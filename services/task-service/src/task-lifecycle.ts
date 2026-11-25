@@ -1,7 +1,7 @@
 import type { MembershipChecker, TeamRole } from './membership';
 
 export type Status = { id: string; teamId: string; isDone: boolean; deletedAt: Date | null; position: number };
-export type Task = { id: string; teamId: string; creatorId: string; assigneeId: string; title: string; description: string | null; dueDate: Date | null; statusId: string; completedAt: Date | null; deletedAt: Date | null };
+export type Task = { id: string; teamId: string; taskNumber: number; creatorId: string; assigneeId: string; title: string; description: string | null; dueDate: Date | null; statusId: string; completedAt: Date | null; deletedAt: Date | null };
 export type Comment = { id: string; taskId: string; authorId: string; content: string; deletedAt: Date | null; createdAt: Date };
 
 export interface TaskStore {
@@ -9,7 +9,7 @@ export interface TaskStore {
   getStatus(statusId: string): Promise<Status | null>;
   getTask(taskId: string): Promise<Task | null>;
   listTasks(teamId: string): Promise<Task[]>;
-  createTask(data: Omit<Task, 'id' | 'deletedAt'>): Promise<Task>;
+  createTask(data: Omit<Task, 'id' | 'deletedAt' | 'taskNumber'>): Promise<Task>;
   updateTask(taskId: string, data: Partial<Omit<Task, 'id' | 'teamId' | 'creatorId'>>): Promise<Task>;
   createOutbox(data: { eventType: 'TASK_ASSIGNED' | 'TASK_REASSIGNED' | 'TASK_STATUS_UPDATED' | 'TASK_UPDATED' | 'TASK_DELETED'; teamId: string; taskId: string; recipientId: string; payload: Record<string, unknown> }): Promise<void>;
   listComments(taskId: string): Promise<Comment[]>;

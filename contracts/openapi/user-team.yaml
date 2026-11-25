@@ -746,8 +746,44 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/AuthUnavailable'
+  /internal/teams/{teamId}/members/{userId}:
+    get:
+      tags: [Teams]
+      operationId: getInternalMembership
+      summary: Return membership for an internal service caller
+      security:
+        - ServiceToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Membership status and role.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, teamId, isActiveMember]
+                properties:
+                  userId: { type: string, format: uuid }
+                  teamId: { type: string, format: uuid }
+                  isActiveMember: { type: boolean }
+                  role: { type: string, enum: [OWNER, LEADER, MEMBER] }
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
 components:
   securitySchemes:
+    ServiceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
     AccessToken:
       type: http
       scheme: bearer

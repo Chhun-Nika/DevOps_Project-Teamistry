@@ -218,7 +218,39 @@ paths:
         '204': { description: Comment deleted. }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /internal/teams/{teamId}/members/{userId}/active-task-summary:
+    get:
+      tags: [Tasks]
+      operationId: getActiveTaskSummary
+      summary: Return active assigned task count for an internal caller
+      security:
+        - ServiceToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Active task count.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [teamId, userId, activeTaskCount]
+                properties:
+                  teamId: { type: string, format: uuid }
+                  userId: { type: string, format: uuid }
+                  activeTaskCount: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 components:
+  securitySchemes:
+    ServiceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
   parameters:
     TeamId:
       name: teamId
@@ -262,6 +294,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Invalid or missing internal service token.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
   schemas:
     Health:
       type: object
@@ -271,10 +308,11 @@ components:
         service: { type: string, enum: [task-service] }
     Task:
       type: object
-      required: [id, teamId, creatorId, assigneeId, title, statusId]
+      required: [id, teamId, taskNumber, creatorId, assigneeId, title, statusId]
       properties:
         id: { type: string, format: uuid }
         teamId: { type: string }
+        taskNumber: { type: integer, minimum: 1, description: Human-readable number unique within the team. }
         creatorId: { type: string }
         assigneeId: { type: string }
         title: { type: string }
