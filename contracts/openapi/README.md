@@ -31,3 +31,10 @@ docker compose -f infra/compose/compose.local.yaml --env-file infra/compose/.env
 For authentication endpoints, the [User & Team database must be running and migrated](../../services/user-team-service/README.md#apply-the-local-database-migrations). Use the same `localhost` hostname for the viewer and API so the browser can send the refresh cookie. Use **Authorize** with an access token for `GET /users/me`. Refresh and logout use the browser cookie set by login.
 
 Validate the User & Team spec from the monorepo root with `npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/user-team.yaml`.
+
+Validate the Task and Notification specs with:
+
+```bash
+npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/task.yaml
+npx --yes @redocly/cli@2 lint --extends spec contracts/openapi/notification.yaml
+```
