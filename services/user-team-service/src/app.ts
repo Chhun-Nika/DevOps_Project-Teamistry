@@ -8,6 +8,7 @@ import { invitationRoutes } from './invitation-routes';
 import { createTeamDeletionRoutes } from './team-deletion-routes';
 import type { ActiveTaskCheck } from './team-deletion-routes';
 import { teamRoutes } from './team-routes';
+import { internalRoutes } from './internal-routes';
 
 export function createApp(checkActiveTasks?: ActiveTaskCheck) {
   const app = express();
@@ -23,6 +24,7 @@ export function createApp(checkActiveTasks?: ActiveTaskCheck) {
     response.status(200).json({ status: 'ok', service: 'user-team-service' });
   });
 
+  app.use(internalRoutes());
   app.use(authRoutes);
   app.use(teamRoutes);
   app.use(invitationRoutes);

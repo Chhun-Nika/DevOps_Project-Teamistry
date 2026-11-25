@@ -137,6 +137,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3001/auth/google/callback}
       GOOGLE_SIGN_IN_SUCCESS_URL: ${GOOGLE_SIGN_IN_SUCCESS_URL:-http://localhost:5173/auth/google/callback}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      TASK_SERVICE_URL: http://task-service:3002
     ports:
       - "3001:3001"
     depends_on:

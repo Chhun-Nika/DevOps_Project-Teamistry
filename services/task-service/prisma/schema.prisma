@@ -42,6 +42,7 @@ model BoardStatus {
 model Task {
   id          String   @id @default(uuid()) @db.Uuid
   teamId      String
+  taskNumber  Int
   creatorId   String
   assigneeId  String
   title       String   @db.VarChar(200)
@@ -60,6 +61,12 @@ model Task {
   @@index([teamId, deletedAt])
   @@index([statusId, deletedAt])
   @@index([assigneeId, deletedAt])
+  @@unique([teamId, taskNumber])
+}
+
+model TaskSequence {
+  teamId     String @id
+  nextNumber Int    @default(1)
 }
 
 model Comment {
