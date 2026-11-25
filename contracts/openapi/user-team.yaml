@@ -124,7 +124,7 @@ paths:
       tags: [Authentication]
       operationId: finishGoogleSignIn
       summary: Complete Google sign-in
-      description: Google redirects the browser here. A valid OAuth state cookie and matching state are required. This endpoint redirects to the configured frontend callback after creating the session.
+      description: Google redirects the browser here. A valid OAuth state cookie and matching state are required. New accounts get a unique username based on their Google display name when available. This endpoint redirects to the configured frontend callback after creating the session.
       security:
         - GoogleFlowCookie: []
       parameters:

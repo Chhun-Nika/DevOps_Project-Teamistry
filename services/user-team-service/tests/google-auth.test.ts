@@ -7,6 +7,7 @@ import request from 'supertest';
 
 import { app } from '../src/app';
 import { getDatabase } from '../src/database';
+import { Prisma } from '../src/generated/prisma/client';
 
 jest.mock('../src/database', () => ({ getDatabase: jest.fn() }));
 
@@ -103,9 +104,65 @@ it('creates a Google account and hands off a refresh session without URL tokens'
     .toBe(url.searchParams.get('code_challenge'));
   expect(verify).toHaveBeenCalledWith({ idToken: 'example-issued-id-token', audience: 'example-client' });
   expect(db.user.create).toHaveBeenCalledWith(expect.objectContaining({
-    data: expect.objectContaining({ googleSubject: 'google-subject', email: 'account@example.invalid' }),
+    data: expect.objectContaining({
+      googleSubject: 'google-subject', email: 'account@example.invalid',
+      username: 'example-account', displayName: 'Example Account',
+    }),
   }));
   expect(db.refreshSession.create).toHaveBeenCalledTimes(1);
+});
+
+function duplicateUserError() {
+  return new Prisma.PrismaClientKnownRequestError('Duplicate user', { code: 'P2002', clientVersion: 'test' });
+}
+
+it('uses numbered suffixes when the username is taken and respects the 30-character limit', async () => {
+  const { url, flow } = await start();
+  stubIdentity(url, { name: 'A'.repeat(40) });
+  db.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ id: 'existing-1' }).mockResolvedValueOnce({ id: 'existing-2' });
+  db.user.create.mockRejectedValueOnce(duplicateUserError()).mockRejectedValueOnce(duplicateUserError())
+    .mockResolvedValueOnce({ id: userId });
+
+  expect((await finish(url, flow)).status).toBe(303);
+  expect(db.user.create.mock.calls.map(([input]) => input.data.username)).toEqual([
+    'a'.repeat(30), 'a'.repeat(28) + '-2', 'a'.repeat(28) + '-3',
+  ]);
+});
+
+it.each([
+  ['  Nika   Chhun! ', 'nika-chhun'],
+  ['នីកា ឈុន', 'នីកា-ឈុន'],
+  ['Li', 'member-li'],
+])('keeps a readable username for the display name %s', async (name, username) => {
+  const { url, flow } = await start();
+  stubIdentity(url, { name });
+  db.user.findUnique.mockResolvedValue(null);
+  db.user.create.mockResolvedValue({ id: userId });
+
+  expect((await finish(url, flow)).status).toBe(303);
+  expect(db.user.create.mock.calls[0][0].data.username).toBe(username);
+});
+
+it.each([undefined, '  ✨  '])('uses a random member suffix for an unusable name', async name => {
+  const { url, flow } = await start();
+  stubIdentity(url, { name });
+  db.user.findUnique.mockResolvedValue(null);
+  db.user.create.mockResolvedValue({ id: userId });
+
+  expect((await finish(url, flow)).status).toBe(303);
+  expect(db.user.create.mock.calls[0][0].data.username).toMatch(/^member-[0-9a-f]{8}$/);
+});
+
+it('does not retry with a new username if a unique conflict came from another field', async () => {
+  const { url, flow } = await start();
+  stubIdentity(url, { name: 'Example Account' });
+  db.user.findUnique.mockResolvedValue(null);
+  db.user.create.mockRejectedValueOnce(duplicateUserError());
+
+  expect((await finish(url, flow)).status).toBe(401);
+  expect(db.user.create).toHaveBeenCalledTimes(1);
+  expect(db.refreshSession.create).not.toHaveBeenCalled();
 });
 
 it('signs in a previously linked subject without matching email', async () => {
