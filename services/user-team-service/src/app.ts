@@ -4,6 +4,7 @@ import helmet from 'helmet';
 
 import { isTrustedAuthOrigin } from './auth-browser';
 import { authErrorHandler, authRoutes } from './auth-routes';
+import { invitationRoutes } from './invitation-routes';
 import { createTeamDeletionRoutes } from './team-deletion-routes';
 import type { ActiveTaskCheck } from './team-deletion-routes';
 import { teamRoutes } from './team-routes';
@@ -24,6 +25,7 @@ export function createApp(checkActiveTasks?: ActiveTaskCheck) {
 
   app.use(authRoutes);
   app.use(teamRoutes);
+  app.use(invitationRoutes);
   app.use(createTeamDeletionRoutes(checkActiveTasks));
   app.use(authErrorHandler);
   return app;

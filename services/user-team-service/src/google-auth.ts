@@ -13,6 +13,9 @@ import { Prisma } from './generated/prisma/client';
 
 const stateCookie = 'googleOAuth';
 const stateTtl = 10 * 60;
+const usernameLimit = 30;
+const numberedUsernameAttempts = 10;
+const randomUsernameAttempts = 3;
 const randomValue = () => randomBytes(32).toString('base64url');
 const flowClaims = z.object({
   tokenUse: z.literal('google-oauth'),
@@ -111,6 +114,49 @@ function verifyFlow(request: Request, secret: string): z.infer<typeof flowClaims
   throw new GoogleSignInError();
 }
 
+function usernameBase(name: string | undefined): string | undefined {
+  const base = (name ?? '').normalize('NFKC').toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-')
+    .replace(/^[\p{M}-]+|-+$/gu, '');
+  if (!/[\p{L}\p{N}]/u.test(base)) return undefined;
+  return base.length < 3 ? `member-${base}` : base;
+}
+
+function fitUsername(base: string, suffix: string): string {
+  const prefix = base.slice(0, usernameLimit - suffix.length).replace(/[\p{Cs}-]+$/gu, '');
+  return prefix + suffix;
+}
+
+async function createGoogleUser(identity: z.infer<typeof googleClaims>): Promise<string> {
+  const db = getDatabase();
+  const base = usernameBase(identity.name);
+  const numberedAttempts = base ? numberedUsernameAttempts : 0;
+
+  for (let attempt = 1; attempt <= numberedAttempts + randomUsernameAttempts; attempt++) {
+    const suffix = attempt <= numberedAttempts
+      ? (attempt === 1 ? '' : `-${attempt}`)
+      : `-${randomBytes(4).toString('hex')}`;
+    const username = fitUsername(base ?? 'member', suffix);
+    try {
+      const user = await db.user.create({
+        data: {
+          username,
+          email: identity.email,
+          googleSubject: identity.sub,
+          displayName: identity.name?.trim().slice(0, 100),
+        },
+        select: { id: true },
+      });
+      return user.id;
+    } catch (error) {
+      // A competing signup may claim the username. Other unique conflicts still fail sign-in.
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error;
+      if (!await db.user.findUnique({ where: { username }, select: { id: true } })) throw error;
+    }
+  }
+  throw new GoogleSignInError();
+}
+
 async function resolveGoogleUser(identity: z.infer<typeof googleClaims>, linkUserId: string | undefined): Promise<string> {
   const db = getDatabase();
   const linked = await db.user.findUnique({ where: { googleSubject: identity.sub }, select: { id: true } });
@@ -135,16 +181,7 @@ async function resolveGoogleUser(identity: z.infer<typeof googleClaims>, linkUse
   }
 
   if (linkUserId) throw new GoogleSignInError();
-  const user = await db.user.create({
-    data: {
-      username: `google-${randomBytes(10).toString('hex')}`,
-      email: identity.email,
-      googleSubject: identity.sub,
-      displayName: identity.name?.trim().slice(0, 100),
-    },
-    select: { id: true },
-  });
-  return user.id;
+  return createGoogleUser(identity);
 }
 
 export async function finishGoogleSignIn(request: Request, response: Response): Promise<void> {

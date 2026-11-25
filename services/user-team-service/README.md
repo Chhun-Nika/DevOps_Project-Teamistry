@@ -32,6 +32,8 @@ Start by navigating the browser to `GET /auth/google`. Google returns to the API
 
 Accounts already linked to Google sign in by their verified Google subject. If the email matches an existing unlinked Teamisty account, first sign in to that account and then navigate to `GET /auth/google?link=1` to link it. The confirmed Google email must match the account and the Teamisty session must still be active at callback time.
 
+New Google accounts get a username based on the Google display name, such as `nika-chhun`. If that name is taken, Teamisty tries numbered suffixes such as `nika-chhun-2`. If no usable name is available, it generates a `member-` username with a short suffix. Returning and linked accounts keep their existing usernames.
+
 ## Apply the local database migrations
 
 From the monorepo root, with `infra/compose/.env` already configured:
