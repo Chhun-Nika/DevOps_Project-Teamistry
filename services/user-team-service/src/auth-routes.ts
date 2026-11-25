@@ -1,8 +1,6 @@
-import { randomUUID } from 'node:crypto';
-
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
-import type { ErrorRequestHandler, RequestHandler, Response } from 'express';
+import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { z } from 'zod';
 
 import { AuthConfigurationError, isTrustedAuthOrigin } from './auth-browser';
@@ -10,6 +8,7 @@ import { issueSession, logoutSession, readAccessSubject, rotateSession } from '.
 import { getDatabase } from './database';
 import { Prisma } from './generated/prisma/client';
 import { finishGoogleSignIn, GoogleSignInError, startGoogleSignIn } from './google-auth';
+import { sendError } from './http-error';
 
 const HASH_COST = 12;
 // Keep password verification work comparable when an account has no password.
@@ -27,10 +26,6 @@ const loginInput = z.strictObject({
   password: passwordWithinBcryptLimit.refine(value => value.length > 0),
 });
 const profileFields = { id: true, username: true, email: true, displayName: true } as const;
-
-function sendError(response: Response, status: number, code: string, message: string): void {
-  response.status(status).json({ error: { code, message }, requestId: randomUUID() });
-}
 
 export const authRoutes = Router();
 
