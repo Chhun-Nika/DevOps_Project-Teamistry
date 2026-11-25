@@ -20,7 +20,7 @@ if (inbox) {
   const event = z.object({
     sourceEventId: z.string().min(1),
     recipientId: z.string().min(1),
-    eventType: z.enum(['TASK_ASSIGNED', 'TASK_REASSIGNED', 'TASK_STATUS_UPDATED', 'TASK_UPDATED', 'TASK_DELETED']),
+    eventType: z.enum(['INVITATION_CREATED', 'TASK_ASSIGNED', 'TASK_REASSIGNED', 'TASK_STATUS_UPDATED', 'TASK_UPDATED', 'TASK_DELETED']),
     title: z.string().min(1).max(200),
     body: z.string().min(1).max(5000),
     payload: z.record(z.string(), z.unknown()).default({}),
