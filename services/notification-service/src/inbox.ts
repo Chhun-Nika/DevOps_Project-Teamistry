@@ -1,4 +1,4 @@
-export type NotificationEventType = 'TASK_ASSIGNED' | 'TASK_REASSIGNED' | 'TASK_STATUS_UPDATED' | 'TASK_UPDATED' | 'TASK_DELETED';
+export type NotificationEventType = 'INVITATION_CREATED' | 'TASK_ASSIGNED' | 'TASK_REASSIGNED' | 'TASK_STATUS_UPDATED' | 'TASK_UPDATED' | 'TASK_DELETED';
 
 export type Notification = {
   id: string;
