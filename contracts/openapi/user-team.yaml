@@ -2,7 +2,7 @@ openapi: 3.0.4
 info:
   title: Teamisty User & Team API
   version: 0.1.0
-  description: Health, password and Google authentication, profile lookup, and refresh-session management.
+  description: Health, authentication, profile lookup, refresh-session management, and team and member operations.
 servers:
   - url: http://localhost:3001
     description: Direct local User & Team Service
@@ -10,6 +10,7 @@ tags:
   - name: Health
   - name: Authentication
   - name: Users
+  - name: Teams
 paths:
   /health:
     get:
@@ -233,6 +234,357 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/AuthUnavailable'
+  /users/me/teams:
+    get:
+      tags: [Teams]
+      operationId: listMyTeams
+      summary: List the caller's active team memberships
+      description: Returns active memberships in non-deleted teams in membership creation order.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of teams with the caller's role in each.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMetadata'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TeamWithRole'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /teams:
+    post:
+      tags: [Teams]
+      operationId: createTeam
+      summary: Create a team
+      description: Creates the team and its first Owner membership together with a pending board-initialization event. The caller becomes the Owner.
+      security:
+        - AccessToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  description: Length is checked after trimming surrounding whitespace.
+            example:
+              name: DevOps Team
+      responses:
+        '201':
+          description: The team was created and its board provisioning is pending.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [team, role]
+                properties:
+                  team:
+                    type: object
+                    required: [id, name, boardProvisioningStatus]
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      boardProvisioningStatus:
+                        type: string
+                        enum: [PENDING]
+                  role:
+                    type: string
+                    enum: [OWNER]
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          description: A valid access token and an existing user are required (`UNAUTHENTICATED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /teams/{teamId}:
+    get:
+      tags: [Teams]
+      operationId: getTeam
+      summary: Get a team and the caller's role
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '200':
+          description: The team's summary and the caller's active role.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamWithRole'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/TeamAccessDenied'
+        '404':
+          $ref: '#/components/responses/TeamNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+    delete:
+      tags: [Teams]
+      operationId: deleteTeam
+      summary: Soft-delete a team
+      description: Only the active Owner can delete the team. Team records remain in storage, and the team is no longer available through the team APIs.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      responses:
+        '204':
+          description: Team soft-deleted.
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Only the active Owner can delete the team (`OWNER_REQUIRED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TeamNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /teams/{teamId}/members:
+    get:
+      tags: [Teams]
+      operationId: listTeamMembers
+      summary: List a team's active members
+      description: Requires an active membership. Returns active members in membership creation order.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of active members and their roles.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMetadata'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TeamMember'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/TeamAccessDenied'
+        '404':
+          $ref: '#/components/responses/TeamNotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /teams/{teamId}/members/{userId}:
+    delete:
+      tags: [Teams]
+      operationId: removeTeamMember
+      summary: Soft-remove a team member
+      description: The Owner can remove Members and the Leader. A Leader can remove Members. Removal requires a successful active-task check with zero assignments.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/MemberUserId'
+      responses:
+        '204':
+          description: Membership soft-removed.
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: The caller cannot remove this member (`TEAM_ACCESS_DENIED`), or the target is the Owner (`OWNER_ROLE_PROTECTED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TeamOrMemberNotFound'
+        '409':
+          description: The target has active tasks (`MEMBER_HAS_ACTIVE_TASKS`), or their membership changed during the check (`MEMBERSHIP_CHANGED`). No membership is removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          description: The active-task check (`TASK_CHECK_UNAVAILABLE`) or authentication configuration (`AUTH_UNAVAILABLE`) is unavailable. No membership is removed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /teams/{teamId}/members/{userId}/role:
+    patch:
+      tags: [Teams]
+      operationId: changeTeamMemberRole
+      summary: Appoint or demote the team Leader
+      description: Only the active Owner can set an active non-Owner membership to LEADER or MEMBER.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+        - $ref: '#/components/parameters/MemberUserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [LEADER, MEMBER]
+      responses:
+        '200':
+          description: The membership has the requested role.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [userId, role]
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  role:
+                    type: string
+                    enum: [LEADER, MEMBER]
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: The caller is not the active Owner (`OWNER_REQUIRED`), or the target is the Owner (`OWNER_ROLE_PROTECTED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TeamOrMemberNotFound'
+        '409':
+          description: The team already has an active Leader (`LEADER_ALREADY_EXISTS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /teams/{teamId}/ownership:
+    patch:
+      tags: [Teams]
+      operationId: transferTeamOwnership
+      summary: Transfer ownership to another active team member
+      description: Only the active Owner can transfer ownership. The previous Owner becomes a Member. A target who was the Leader frees the Leader slot.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [newOwnerId]
+              properties:
+                newOwnerId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Ownership was transferred in one transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [teamId, ownerId, previousOwnerId]
+                properties:
+                  teamId:
+                    type: string
+                    format: uuid
+                  ownerId:
+                    type: string
+                    format: uuid
+                  previousOwnerId:
+                    type: string
+                    format: uuid
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Only the active Owner can transfer ownership (`OWNER_REQUIRED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/TeamOrMemberNotFound'
+        '409':
+          description: The requested user is already the Owner (`ALREADY_OWNER`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
 components:
   securitySchemes:
     AccessToken:
@@ -251,6 +603,36 @@ components:
       name: googleOAuth
       description: Short-lived OAuth state cookie issued by the Google sign-in start endpoint.
   parameters:
+    MemberUserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 21474837
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
     TrustedOrigin:
       name: Origin
       in: header
@@ -260,6 +642,52 @@ components:
         type: string
       example: http://localhost:5173
   schemas:
+    TeamRole:
+      type: string
+      enum: [OWNER, LEADER, MEMBER]
+    TeamWithRole:
+      type: object
+      required: [team, role]
+      properties:
+        team:
+          type: object
+          required: [id, name, boardProvisioningStatus]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            boardProvisioningStatus:
+              type: string
+              enum: [PENDING, READY]
+        role:
+          $ref: '#/components/schemas/TeamRole'
+    TeamMember:
+      type: object
+      required: [userId, username, displayName, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        displayName:
+          type: string
+          nullable: true
+        role:
+          $ref: '#/components/schemas/TeamRole'
+    PageMetadata:
+      type: object
+      required: [page, limit, hasMore]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        hasMore:
+          type: boolean
+          description: Whether another page of results is available.
     SignupInput:
       type: object
       additionalProperties: false
@@ -344,6 +772,30 @@ components:
           type: string
           format: uuid
   responses:
+    TeamOrMemberNotFound:
+      description: The team does not exist or has been deleted (`TEAM_NOT_FOUND`), or the target is not an active member (`MEMBER_NOT_FOUND`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthenticated:
+      description: A valid access token is required (`UNAUTHENTICATED`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TeamAccessDenied:
+      description: Active membership in the team is required (`TEAM_ACCESS_DENIED`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TeamNotFound:
+      description: The team does not exist or has been deleted (`TEAM_NOT_FOUND`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
     CreatedProfile:
       description: Account created.
       content:

@@ -4,9 +4,9 @@ An OpenAPI specification is a machine-readable YAML or JSON file that describes 
 
 Each service owner maintains one spec in this directory. Add or update the contract in the same PR as the endpoint change.
 
-- [User & Team](user-team.yaml) covers health, signup, password login, Google sign-in, profile, refresh, and logout.
-- [Task](task.yaml) covers boards, statuses, tasks, and comments.
-- [Notification](notification.yaml) covers the inbox and read state.
+- [User & Team](user-team.yaml) covers health, authentication, profile, and team and member endpoints.
+- Task will use `task.yaml` for boards, statuses, tasks, and comments.
+- Notification will use `notification.yaml` for the inbox and read state.
 
 Identify internal REST endpoints and their authentication requirements explicitly. A public-facing API reference should include only public operations. Record RabbitMQ message contracts under [events](../events/).
 
