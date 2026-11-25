@@ -1,35 +1,21 @@
 import { randomUUID } from 'node:crypto';
 
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { getDatabase } from './database';
 import type { Prisma } from './generated/prisma/client';
 import { sendError } from './http-error';
+import { pageResult, readPage } from './pagination';
 import { activeMembership, authenticatedSubject, lockActiveTeam, readTeamId } from './team-access';
 
 const createTeamInput = z.strictObject({ name: z.string().trim().min(1).max(100) });
 const changeRoleInput = z.strictObject({ role: z.enum(['LEADER', 'MEMBER']) });
 const transferOwnershipInput = z.strictObject({ newOwnerId: z.uuid() });
-const positiveInteger = z.string().regex(/^[1-9]\d*$/).transform(Number);
-const pagination = z.object({
-  page: positiveInteger.pipe(z.number().int().max(21_474_837)).optional().default(1),
-  limit: positiveInteger.pipe(z.number().int().max(100)).optional().default(20),
-});
 const teamFields = { id: true, name: true, boardProvisioningStatus: true } as const;
 const membershipOrder = [{ createdAt: 'asc' }, { id: 'asc' }] satisfies Prisma.MembershipOrderByWithRelationInput[];
 const readSnapshot = { isolationLevel: 'RepeatableRead' } as const;
-
-function readPage(request: Request, response: Response): z.infer<typeof pagination> | undefined {
-  const parsed = pagination.safeParse(request.query);
-  if (parsed.success) return parsed.data;
-  sendError(response, 400, 'INVALID_INPUT', 'Provide a valid page number and a limit of 1 to 100.');
-}
-
-function pageResult<T>(rows: T[], { page, limit }: z.infer<typeof pagination>) {
-  return { items: rows.slice(0, limit), page, limit, hasMore: rows.length > limit };
-}
 
 async function getActiveTeamAccess(tx: Prisma.TransactionClient, teamId: string, userId: string) {
   const team = await tx.team.findFirst({ where: { id: teamId, deletedAt: null }, select: teamFields });

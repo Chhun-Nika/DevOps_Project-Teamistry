@@ -11,6 +11,7 @@ tags:
   - name: Authentication
   - name: Users
   - name: Teams
+  - name: Invitations
 paths:
   /health:
     get:
@@ -585,6 +586,166 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/AuthUnavailable'
+  /teams/{teamId}/invitations:
+    post:
+      tags: [Invitations]
+      operationId: createTeamInvitation
+      summary: Invite a registered user to a team
+      description: An active Owner or Leader can create a pending invitation. The notification event is queued in the same database transaction.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/TeamId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [username]
+                  additionalProperties: false
+                  properties:
+                    username:
+                      type: string
+                      minLength: 1
+                      maxLength: 254
+                      description: Trimmed and matched against the registered username.
+                - type: object
+                  required: [email]
+                  additionalProperties: false
+                  properties:
+                    email:
+                      $ref: '#/components/schemas/Email'
+      responses:
+        '201':
+          description: The invitation and its pending outbox event were saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitation]
+                properties:
+                  invitation:
+                    $ref: '#/components/schemas/Invitation'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          description: Only an active Owner or Leader can invite users (`INVITER_ROLE_REQUIRED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The team was not found (`TEAM_NOT_FOUND`) or no registered user matched (`INVITEE_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The invitee is already an active member (`ALREADY_TEAM_MEMBER`) or already has a pending invitation (`INVITATION_ALREADY_PENDING`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /invitations:
+    get:
+      tags: [Invitations]
+      operationId: listMyInvitations
+      summary: List the caller's invitations
+      description: Returns the caller's invitations across all statuses for active teams, newest first.
+      security:
+        - AccessToken: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of invitations with the team and inviter details.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMetadata'
+                  - type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InvitationListItem'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
+  /invitations/{invitationId}:
+    patch:
+      tags: [Invitations]
+      operationId: respondToInvitation
+      summary: Accept or decline a pending invitation
+      description: Only the invitee can respond while the team is active. Acceptance creates one Member in the same transaction as the invitation update. Declining creates no membership.
+      security:
+        - AccessToken: []
+      parameters:
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [ACCEPTED, DECLINED]
+      responses:
+        '200':
+          description: The invitation status and response time were recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitation]
+                properties:
+                  invitation:
+                    $ref: '#/components/schemas/Invitation'
+        '400':
+          $ref: '#/components/responses/InvalidInput'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          description: The invitation is missing, belongs to another user, or refers to a deleted team (`INVITATION_NOT_FOUND`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The invitation is no longer pending (`INVITATION_NOT_PENDING`), or the invitee is already an active member (`ALREADY_TEAM_MEMBER`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AuthUnavailable'
 components:
   securitySchemes:
     AccessToken:
@@ -642,6 +803,59 @@ components:
         type: string
       example: http://localhost:5173
   schemas:
+    InvitationListItem:
+      allOf:
+        - $ref: '#/components/schemas/Invitation'
+        - type: object
+          required: [team, inviter]
+          properties:
+            team:
+              type: object
+              required: [id, name]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+            inviter:
+              type: object
+              required: [id, username, displayName]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                username:
+                  type: string
+                displayName:
+                  type: string
+                  nullable: true
+    Invitation:
+      type: object
+      required: [id, teamId, inviterId, inviteeId, status, createdAt, respondedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        inviterId:
+          type: string
+          format: uuid
+        inviteeId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, ACCEPTED, DECLINED, CANCELLED]
+        createdAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
     TeamRole:
       type: string
       enum: [OWNER, LEADER, MEMBER]
