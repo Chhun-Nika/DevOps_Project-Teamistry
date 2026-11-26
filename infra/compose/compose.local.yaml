@@ -1,6 +1,33 @@
 name: teamisty-local
 
 services:
+  gateway:
+    image: caddy:2.10-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ../gateway/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      user-team-service:
+        condition: service_healthy
+      task-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - teamisty-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:8080/api/user-team/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
   swagger-ui:
     image: swaggerapi/swagger-ui:v5.34.1
     profiles: [docs]

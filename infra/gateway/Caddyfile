@@ -1,0 +1,52 @@
+:8080 {
+  # Public health routes are explicitly mapped to each backend.
+  handle /api/user-team/health {
+    rewrite * /health
+    reverse_proxy user-team-service:3001
+  }
+  handle /api/task/health {
+    rewrite * /health
+    reverse_proxy task-service:3002
+  }
+  handle /api/notification/health {
+    rewrite * /health
+    reverse_proxy notification-service:3003
+  }
+
+  # Never expose backend-to-backend routes through the gateway.
+  @internal path /internal/* /api/internal/*
+  respond @internal 404
+
+  # Preserve the backend route while removing only the public /api prefix.
+  handle /api/auth/* {
+    uri strip_prefix /api
+    reverse_proxy user-team-service:3001
+  }
+  handle /api/teams/* {
+    uri strip_prefix /api
+    reverse_proxy user-team-service:3001
+  }
+  handle /api/users/* {
+    uri strip_prefix /api
+    reverse_proxy user-team-service:3001
+  }
+  handle /api/invitations/* {
+    uri strip_prefix /api
+    reverse_proxy user-team-service:3001
+  }
+  handle /api/tasks/* {
+    uri strip_prefix /api
+    reverse_proxy task-service:3002
+  }
+  handle /api/comments/* {
+    uri strip_prefix /api
+    reverse_proxy task-service:3002
+  }
+  handle /api/notifications* {
+    uri strip_prefix /api
+    reverse_proxy notification-service:3003
+  }
+
+  # No route means no public access to arbitrary backend paths.
+  respond 404
+}
