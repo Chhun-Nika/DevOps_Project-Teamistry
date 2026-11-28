@@ -40,7 +40,7 @@ paths:
       tags: [Authentication]
       operationId: signUp
       summary: Create a password-based account
-      description: Returns the public profile. Use login to start a session.
+      description: Returns the public profile. When omitted or blank, the display name defaults to the username. Use login to start a session.
       security: []
       requestBody:
         required: true
@@ -924,7 +924,7 @@ components:
         displayName:
           type: string
           maxLength: 100
-          description: Length is checked after trimming surrounding whitespace.
+          description: Optional API override. The username is used when omitted or blank.
     LoginInput:
       type: object
       additionalProperties: false

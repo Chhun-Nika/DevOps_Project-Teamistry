@@ -49,7 +49,7 @@ authRoutes.post('/auth/signup', async (request, response) => {
   const passwordHash = await bcrypt.hash(password, HASH_COST);
   try {
     const user = await getDatabase().user.create({
-      data: { ...profile, passwordHash },
+      data: { ...profile, displayName: profile.displayName || profile.username, passwordHash },
       select: profileFields,
     });
     response.status(201).json({ user });

@@ -47,7 +47,7 @@ Rules:
 
 ### Authentication
 
-- A user may sign up using a unique username, unique email, and password; display name is optional.
+- The signup form asks for a unique username, a unique email, and a password. The display name defaults to the username for password signup. Users will be able to edit their display name in account settings in a later update.
 - A user may sign in using Google OAuth. A verified Google email matching an existing account is linked after appropriate verification.
 - Successful authentication creates a JWT-based session.
 - Backend APIs enforce authentication and permissions; the frontend is not trusted for authorization.

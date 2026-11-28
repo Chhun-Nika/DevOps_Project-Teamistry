@@ -10,9 +10,15 @@
     "lint": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@animate-ui/react": "^2.4.6",
+    "@fontsource-variable/google-sans": "^5.3.2",
+    "@tailwindcss/vite": "^4.3.5",
     "@vitejs/plugin-react": "latest",
+    "lucide-react": "^1.80.0",
+    "motion": "^14.14.0",
     "react": "latest",
     "react-dom": "latest",
+    "tailwindcss": "^4.3.5",
     "vite": "latest"
   },
   "devDependencies": {
@@ -23,6 +29,8 @@
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-arm64-gnu": "1.2.19",
-    "@rolldown/binding-linux-x64-gnu": "1.2.19"
+    "@rolldown/binding-linux-x64-gnu": "1.2.19",
+    "lightningcss-linux-arm64-gnu": "1.33.0",
+    "lightningcss-linux-x64-gnu": "1.33.0"
   }
 }

@@ -55,8 +55,9 @@ afterAll(() => {
   else process.env.AUTH_REFRESH_COOKIE_SAME_SITE = originalSameSite;
 });
 
-it('creates a public profile and stores a bcrypt hash', async () => {
-  store.user.create.mockResolvedValueOnce(user);
+it('creates a public profile with a default display name and stores a bcrypt hash', async () => {
+  const createdUser = { ...user, displayName: user.username };
+  store.user.create.mockResolvedValueOnce(createdUser);
   const response = await request(app).post('/auth/signup').send({
     username: ' alice ',
     email: 'ALICE@example.invalid',
@@ -64,9 +65,9 @@ it('creates a public profile and stores a bcrypt hash', async () => {
   });
 
   expect(response.status).toBe(201);
-  expect(response.body).toEqual({ user });
+  expect(response.body).toEqual({ user: createdUser });
   const { data } = store.user.create.mock.calls[0][0];
-  expect(data).toMatchObject({ username: user.username, email: user.email });
+  expect(data).toMatchObject({ username: user.username, email: user.email, displayName: user.username });
   expect(data.password).toBeUndefined();
   expect(data.passwordHash).not.toBe(password);
   expect(await bcrypt.compare(password, data.passwordHash)).toBe(true);

@@ -9,8 +9,8 @@ WORKDIR /workspace
 COPY package.json package-lock.json ./
 COPY frontend/package.json ./frontend/package.json
 
-# The explicit optional bindings in frontend/package.json let npm choose the
-# correct Linux-native Vite binding for the target image architecture.
+# The explicit optional dependencies cover the Linux-native bindings used by
+# Vite and Tailwind on both supported container architectures.
 RUN npm ci --workspace=@teamisty/frontend --include-workspace-root --include=optional
 
 COPY frontend ./frontend
@@ -22,10 +22,10 @@ RUN npm run build --workspace=@teamisty/frontend
 FROM node:26-bookworm-slim AS development
 
 ENV NODE_ENV=development
-ENV VITE_API_BASE_URL=http://localhost:8080
 
 WORKDIR /app
 
+COPY --from=build /workspace/package.json ./package.json
 COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/frontend ./frontend
 
